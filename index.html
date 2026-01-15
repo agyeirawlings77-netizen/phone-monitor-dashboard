@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 Phone Monitor Dashboard</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .header h1 {
+            font-size: 36px;
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .status.connected {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .status.waiting {
+            background: #FF9800;
+            color: white;
+        }
+
+        .status.disconnected {
+            background: #f44336;
+            color: white;
+        }
+
+        .phone-count {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: bold;
+        }
+
+        /* Connection Info Box */
+        .info-box {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .info-box h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .info-value {
+            background: #667eea;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        /* Instructions */
+        .instructions {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .instructions h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+            color: #856404;
+        }
+
+        .instructions li {
+            margin: 8px 0;
+            font-weight: 500;
+        }
+
+        /* Phone Grid */
+        .phone-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .phone-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .phone-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .phone-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .phone-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .phone-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .phone-preview {
+            width: 100%;
+            height: 450px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .phone-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .loading {
+            font-size: 48px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .phone-info {
+            margin-top: 15px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .phone-info p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .view-btn {
+            width: 100%;
+            padding: 14px;
+            margin-top: 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .view-btn:hover {
+            background: #5568d3;
+        }
+
+        /* No Phones */
+        .no-phones {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 80px 40px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .no-phones h2 {
+            font-size: 32px;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .no-phones p {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        /* Fullscreen Overlay */
+        .fullscreen-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .fullscreen-header {
+            padding: 20px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .fullscreen-header h2 {
+            color: white;
+            font-size: 24px;
+        }
+
+        .close-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: #d32f2f;
+        }
+
+        .fullscreen-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .phone-canvas {
+            max-width: 90%;
+            max-height: 90%;
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            cursor: crosshair;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .touch-indicator {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 4px solid #4CAF50;
+            border-radius: 50%;
+            background: rgba(76, 175, 80, 0.3);
+            pointer-events: none;
+            display: none;
+            transform: translate(-50%, -50%);
+            animation: touchPulse 0.5s ease-out;
+        }
+
+        @keyframes touchPulse {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.5;
+            }
+        }
+
+        .fullscreen-footer {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .fullscreen-footer p {
+            color: #ddd;
+            font-size: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .status-bar {
+                flex-direction: column;
+            }
+
+            .phone-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📱 Phone Monitor Dashboard</h1>
+            <div class="status-bar">
+                <div class="status waiting" id="status">⏳ Connecting to server...</div>
+                <div class="phone-count">Connected Phones: <span id="phoneCount">0</span></div>
+            </div>
+        </div>
+
+        <!-- Connection Info -->
+        <div class="info-box">
+            <h2>🔌 Server Configuration</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Server IP:</span>
+                    <span class="info-value">10.162.97.207</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Video Port:</span>
+                    <span class="info-value">5555</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Touch Port:</span>
+                    <span class="info-value">5557</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Web Port:</span>
+                    <span class="info-value">8080</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>📱 How to Connect Your Phone:</h3>
+            <ol>
+                <li>Open the <strong>Target Phone</strong> app on your Android device</li>
+                <li>Enter the Monitor IP Address: <strong>10.162.97.207</strong></li>
+                <li>Grant all required permissions (Screen Capture, Overlay, Network)</li>
+                <li>Tap <strong>"CONNECT TO MONITOR"</strong></li>
+                <li>Your phone screen will appear below in real-time!</li>
+            </ol>
+        </div>
+
+        <!-- Phone Grid -->
+        <div class="phone-grid" id="phoneGrid">
+            <div class="no-phones">
+                <h2>⏳ Waiting for Phones to Connect...</h2>
+                <p>Make sure the Python server is running and your phone app is configured correctly.</p>
+                <div class="loading">🔄</div>
+            </div>
+        </div>
+
+        <!-- Fullscreen Overlay -->
+        <div class="fullscreen-overlay" id="fullscreenOverlay">
+            <div class="fullscreen-header">
+                <h2 id="fullscreenTitle">Phone 1</h2>
+                <button class="close-btn" onclick="closeFullscreen()">✖ Close</button>
+            </div>
+            <div class="fullscreen-content">
+                <canvas id="phoneCanvas" class="phone-canvas"></canvas>
+                <div class="touch-indicator" id="touchIndicator"></div>
+            </div>
+            <div class="fullscreen-footer">
+                <p>💡 Click anywhere on the phone screen to control it remotely</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const SERVER_IP = '10.162.97.207';
+        const WEB_PORT = 8080;
+
+        // Initialize Socket.IO
+        const socket = io(`http://${SERVER_IP}:${WEB_PORT}`);
+
+        // State
+        let phones = {};
+        let currentFullscreenPhone = null;
+
+        // DOM Elements
+        const phoneGrid = document.getElementById('phoneGrid');
+        const phoneCount = document.getElementById('phoneCount');
+        const statusElement = document.getElementById('status');
+        const fullscreenOverlay = document.getElementById('fullscreenOverlay');
+        const phoneCanvas = document.getElementById('phoneCanvas');
+        const fullscreenTitle = document.getElementById('fullscreenTitle');
+        const touchIndicator = document.getElementById('touchIndicator');
+
+        const ctx = phoneCanvas.getContext('2d');
+
+        // Socket Events
+        socket.on('connect', () => {
+            console.log('✅ Connected to server');
+            statusElement.className = 'status connected';
+            statusElement.textContent = '🟢 Connected to Server';
+        });
+
+        socket.on('disconnect', () => {
+            console.log('❌ Disconnected from server');
+            statusElement.className = 'status disconnected';
+            statusElement.textContent = '🔴 Disconnected from Server';
+        });
+
+        socket.on('phones_list', (data) => {
+            console.log('📱 Received phones list:', data.phones);
+            data.phones.forEach(phone => addPhone(phone));
+            updatePhoneCount();
+        });
+
+        socket.on('phone_connected', (phone) => {
+            console.log('📱 New phone connected:', phone);
+            addPhone(phone);
+            updatePhoneCount();
+        });
+
+        socket.on('phone_disconnected', (data) => {
+            console.log('📱 Phone disconnected:', data.phone_id);
+            removePhone(data.phone_id);
+            updatePhoneCount();
+        });
+
+        socket.on('video_frame', (data) => {
+            const phone = phones[data.phone_id];
+            if (!phone) return;
+
+            // Update preview
+            if (phone.previewImg) {
+                phone.previewImg.src = 'data:image/jpeg;base64,' + data.frame;
+            }
+
+            // Update fullscreen canvas
+            if (currentFullscreenPhone === data.phone_id) {
+                const img = new Image();
+                img.onload = () => {
+                    phoneCanvas.width = img.width;
+                    phoneCanvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = 'data:image/jpeg;base64,' + data.frame;
+            }
+        });
+
+        // Add phone to grid
+        function addPhone(phone) {
+            if (phones[phone.phone_id]) return;
+
+            phones[phone.phone_id] = phone;
+
+            // Remove "no phones" message
+            const noPhones = phoneGrid.querySelector('.no-phones');
+            if (noPhones) noPhones.remove();
+
+            // Create phone card
+            const card = document.createElement('div');
+            card.className = 'phone-card';
+            card.id = `phone-${phone.phone_id}`;
+
+            const connectedTime = new Date(phone.device_info.connected_at * 1000).toLocaleTimeString();
+
+            card.innerHTML = `
+                <div class="phone-card-header">
+                    <div class="phone-name">${phone.device_info.name}</div>
+                    <div class="phone-status">
+                        <span>🟢</span>
+                        <span>Live</span>
+                    </div>
+                </div>
+                <div class="phone-preview">
+                    <img id="preview-${phone.phone_id}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="Phone Screen">
+                </div>
+                <div class="phone-info">
+                    <p><strong>📍 IP Address:</strong> ${phone.device_info.ip}</p>
+                    <p><strong>🕐 Connected:</strong> ${connectedTime}</p>
+                </div>
+                <button class="view-btn" onclick="openFullscreen('${phone.phone_id}')">
+                    🔍 View Fullscreen & Control
+                </button>
+            `;
+
+            phoneGrid.appendChild(card);
+
+            // Store preview image reference
+            phones[phone.phone_id].previewImg = document.getElementById(`preview-${phone.phone_id}`);
+        }
+
+        // Remove phone
+        function removePhone(phoneId) {
+            const card = document.getElementById(`phone-${phoneId}`);
+            if (card) card.remove();
+
+            delete phones[phoneId];
+
+            // Show "no phones" if empty
+            if (Object.keys(phones).length === 0) {
+                phoneGrid.innerHTML = `
+                    <div class="no-phones">
+                        <h2>⏳ Waiting for Phones to Connect...</h2>
+                        <p>All phones have disconnected.</p>
+                        <div class="loading">🔄</div>
+                    </div>
+                `;
+            }
+
+            // Close fullscreen if viewing this phone
+            if (currentFullscreenPhone === phoneId) {
+                closeFullscreen();
+            }
+
+            updatePhoneCount();
+        }
+
+        // Update phone count
+        function updatePhoneCount() {
+            phoneCount.textContent = Object.keys(phones).length;
+        }
+
+        // Open fullscreen
+        function openFullscreen(phoneId) {
+            currentFullscreenPhone = phoneId;
+            const phone = phones[phoneId];
+            if (!phone) return;
+
+            fullscreenTitle.textContent = phone.device_info.name;
+            fullscreenOverlay.style.display = 'flex';
+        }
+
+        // Close fullscreen
+        function closeFullscreen() {
+            currentFullscreenPhone = null;
+            fullscreenOverlay.style.display = 'none';
+        }
+
+        // Touch events
+        let isMouseDown = false;
+
+        phoneCanvas.addEventListener('mousedown', (e) => {
+            if (!currentFullscreenPhone) return;
+            isMouseDown = true;
+            sendTouchEvent(1, e);
+            showTouchIndicator(e);
+        });
+
+        phoneCanvas.addEventListener('mousemove', (e) => {
+            if (!currentFullscreenPhone || !isMouseDown) return;
+            sendTouchEvent(0, e);
+            showTouchIndicator(e);
+        });
+
+        phoneCanvas.addEventListener('mouseup', (e) => {
+            if (!currentFullscreenPhone) return;
+            isMouseDown = false;
+            sendTouchEvent(2, e);
+            hideTouchIndicator();
+        });
+
+        phoneCanvas.addEventListener('mouseleave', () => {
+            if (!currentFullscreenPhone) return;
+            isMouseDown = false;
+            hideTouchIndicator();
+        });
+
+        // Send touch event to phone
+        function sendTouchEvent(type, event) {
+            const rect = phoneCanvas.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / rect.width;
+            const y = (event.clientY - rect.top) / rect.height;
+
+            socket.emit('touch_event', {
+                phone_id: currentFullscreenPhone,
+                type: type,
+                x: x,
+                y: y
+            });
+
+            console.log(`👆 Touch: type=${type}, x=${x.toFixed(2)}, y=${y.toFixed(2)}`);
+        }
+
+        // Show touch indicator
+        function showTouchIndicator(event) {
+            touchIndicator.style.display = 'block';
+            touchIndicator.style.left = event.clientX + 'px';
+            touchIndicator.style.top = event.clientY + 'px';
+        }
+
+        // Hide touch indicator
+        function hideTouchIndicator() {
+            touchIndicator.style.display = 'none';
+        }
+
+        // Close fullscreen with Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && fullscreenOverlay.style.display === 'flex') {
+                closeFullscreen();
+            }
+        });
+
+        console.log('🚀 Phone Monitor Dashboard initialized');
+        console.log(`📡 Connecting to: http://${SERVER_IP}:${WEB_PORT}`);
+    </script>
+</body>
+</html>
